@@ -1,0 +1,214 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'subscriptions
+
+  Sample SAM Template for sam-app
+
+  '
+Parameters:
+  Environment:
+    Type: String
+  Version:
+    Type: String
+  DeployBucket:
+    Type: String
+Globals:
+  Function:
+    Timeout: 10
+Resources:
+  ServerlessRestApi:
+    DependsOn: RegisterUserFunction
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName:
+        Fn::Sub: ${Environment}
+      Variables:
+        ENV:
+          Fn::Sub: ${Environment}
+      DefinitionBody:
+        Fn::Transform:
+          Name: AWS::Include
+          Parameters:
+            Location:
+              Fn::Sub: s3://${Environment}-${DeployBucket}/${Version}/end-user-swagger.yaml
+  RegisterUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: s3://staging-ankit-bkt/be769c4d700408b71435ac620807d32e
+      Handler: index.handler
+      Runtime: nodejs12.x
+      Environment:
+        Variables:
+          ENV:
+            Fn::Sub: ${Environment}
+      Policies:
+      - Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - xray:PutTelemetryRecords
+          - xray:PutTraceSegments
+          Resource: '*'
+        - Effect: Allow
+          Action:
+          - dynamodb:*
+          Resource:
+          - Fn::Sub: arn:aws:dynamodb:*:*:table/${Environment}*
+  RegisterUserFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    DependsOn: RegisterUserFunction
+    Properties:
+      RetentionInDays: 14
+      LogGroupName:
+        Fn::Join:
+        - ''
+        - - /aws/lambda/
+          - Ref: RegisterUserFunction
+  RegisterUserFunctionApiGatewayPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName:
+        Fn::GetAtt: RegisterUserFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Sub: arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ServerlessRestApi}/*/POST/register
+  RefresherUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: s3://staging-ankit-bkt/9532fb59eba8631337a248366afe230d
+      Handler: index.handler
+      Runtime: nodejs12.x
+      Environment:
+        Variables:
+          ENV:
+            Fn::Sub: ${Environment}
+      Policies:
+      - Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - xray:PutTelemetryRecords
+          - xray:PutTraceSegments
+          Resource: '*'
+        - Effect: Allow
+          Action:
+          - dynamodb:*
+          Resource:
+          - Fn::Sub: arn:aws:dynamodb:*:*:table/${Environment}*
+  RefresherFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    DependsOn: RefresherUserFunction
+    Properties:
+      RetentionInDays: 14
+      LogGroupName:
+        Fn::Join:
+        - ''
+        - - /aws/lambda/
+          - Ref: RefresherUserFunction
+  RefresherUserFunctionApiGatewayPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName:
+        Fn::GetAtt: RefresherUserFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Sub: arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ServerlessRestApi}/*/POST/refresh
+  AuthConfigFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: s3://staging-ankit-bkt/b05be1d6569f6a81ae7ea5e095bd2445
+      Handler: index.handler
+      Runtime: nodejs12.x
+      Environment:
+        Variables:
+          ENV:
+            Fn::Sub: ${Environment}
+      Policies:
+      - Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - xray:PutTelemetryRecords
+          - xray:PutTraceSegments
+          Resource: '*'
+        - Effect: Allow
+          Action:
+          - dynamodb:*
+          Resource:
+          - Fn::Sub: arn:aws:dynamodb:*:*:table/${Environment}*
+  AuthConfigFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    DependsOn: AuthConfigFunction
+    Properties:
+      RetentionInDays: 14
+      LogGroupName:
+        Fn::Join:
+        - ''
+        - - /aws/lambda/
+          - Ref: AuthConfigFunction
+  AuthConfigFunctionApiGatewayPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName:
+        Fn::GetAtt: AuthConfigFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Sub: arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ServerlessRestApi}/*/GET/authconfig/*
+  RegisterUserWithIdFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: s3://staging-ankit-bkt/82952e729626a8bebaff1b15eabf09de
+      Handler: index.handler
+      Runtime: nodejs12.x
+      Timeout: 30
+      MemorySize: 256
+      Environment:
+        Variables:
+          ENV:
+            Fn::Sub: ${Environment}
+          twillioAccountSid: ''
+          twillioAuthToken: ''
+          template: $.payload.template
+          sourceNumber: '+14155238886'
+          destinationNumber: $.payload.username
+      Policies:
+      - Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - xray:PutTelemetryRecords
+          - xray:PutTraceSegments
+          Resource: '*'
+        - Effect: Allow
+          Action:
+          - dynamodb:*
+          Resource:
+          - Fn::Sub: arn:aws:dynamodb:*:*:table/${Environment}*
+  RegisterUserWithIdFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    DependsOn: RegisterUserWithIdFunction
+    Properties:
+      RetentionInDays: 14
+      LogGroupName:
+        Fn::Join:
+        - ''
+        - - /aws/lambda/
+          - Ref: RegisterUserWithIdFunction
+  RegisterUserWithIdFunctionApiGatewayPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName:
+        Fn::GetAtt: RegisterUserWithIdFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Sub: arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ServerlessRestApi}/*/POST/register/*
+Outputs:
+  HelloWorldApi:
+    Description: API Gateway endpoint URL for Prod stage for Hello World function
+    Value:
+      Fn::Sub: https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/subscriptions/
+
